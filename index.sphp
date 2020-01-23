@@ -1,0 +1,277 @@
+## #!/usr/local/bin/php52
+<?php
+	
+	//*******************************************************************
+	//	Purpose:	Attendance Tracking System
+	//*******************************************************************
+	
+	include('/home/mifdo/https/includeCAS/casauth.inc');
+	require_once('/home/mifdo/.php_admin_connect.sphp');
+
+	date_default_timezone_set('America/chicago');
+	
+	//code to check login from CAS//
+	$caslogin;
+	$_SESSION['test']= $caslogin;
+	
+	require("/home/mifdo/https-files/php_ldap_bind.inc");
+	
+	$LDAP = ldap_connect("ldap.wiu.edu");
+	$result = ldap_bind($LDAP,$BindDN,$BindPW);
+	
+	$myemail=$_SESSION['test'] . '@wiu.edu';
+	$criteria = "(&(mail=$myemail)(objectclass=wiuEmployee))";
+	$searchResult = ldap_search($LDAP, "ou=People, dc=wiu, dc=edu", $criteria);
+	$numEntries = ldap_count_entries($LDAP, $searchResult);
+	$info = ldap_get_entries($LDAP, $searchResult);
+	if($numEntries>0)
+	{
+		$uid=$info[0]["uid"][0];
+		$_SESSION['ecom']=$uid;
+		if($_SESSION['ecom'] === "mrr114" || $_SESSION['ecom'] === "nd108"  || $_SESSION['ecom'] === "scd104" || $_SESSION['ecom'] === "bb147" || $_SESSION['ecom'] === "murlr" || $_SESSION['ecom'] === "nt117" || $_SESSION['ecom'] === "rjh132" || $_SESSION['ecom'] === "rrs131" || $_SESSION['ecom'] === "ha110"||$_SESSION['ecom'] === "vstpn100")
+			$_SESSION['ecom'] ='mujah14'; //mfdlh
+			//$_SESSION['ecom'] ='mjm125';	
+		else
+			$_SESSION['ecom'] = $_SESSION['ecom'];
+	}
+	else
+	{
+		logout();
+	}
+	
+	checkLogin();
+	$gaRole=checkLoginForGA();
+	
+	if($_SESSION['role']=="instructor" || $_SESSION['role']=="instructorUser"||$gaRole=="GA"||$_SESSION['role']=="advisor") 
+	{
+		require_once('model/instructor_functions.php');
+		
+		if(isset($_GET['action']) && $_GET['action'] === "chooseCourseQuick")
+		{
+			chooseCourseQuick($_GET['starnumber'], $_GET['operation']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "selectCourse")
+		{
+			selectCourse($_GET['starnumber'], $_GET['operation'], $_POST['future_date']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "editAttendance")
+		{
+			editAttendance($_GET['starnumber']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "emailStudentReport")
+		{
+			emailStudentReport($_GET['starnumber']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "addGA")
+		{
+			addGA($_GET['starnumber']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "addNote")
+		{
+			addNote($_GET['starnumber']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "exportAttendance")
+		{
+			exportAttendance($_GET['starnumber']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "attendanceHistory")
+		{
+			attendanceHistory();
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "attendancePreference")
+		{
+			attendancePreference($_GET['starnumber']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "setPreference")
+		{
+			setPreference($_POST['star'], $_POST['preference'], $_POST['preference2'], $_POST['required']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "printPreview")
+		{
+			printPreview($_GET['starnumber']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "printMultiplePreview")
+		{
+			printMultiplePreview($_GET['starnumber']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "viewClassSummary")
+		{
+			statistics($_GET['termYear'], $_GET['subjectId']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "getAdvisorDetails")
+		{
+			getAdvisorDetails($_GET['starnumber'], $_GET['ecom']);
+		}
+		else if(isset($_GET['action']) && $_GET['action'] === "studentInfo")
+		{
+			studentInfo($_GET['starnumber'], $_GET['id']);
+		}
+		else if($_POST['Submit'] === "Save" || $_POST['Submit'] === "Save Changes" || $_POST['Submit'] === "Save and Enter 1Another" || $_POST['Submit'] === "Remove All Records for This Day" || $_POST['Submit'] === "Save GA" || $_POST['Submit'] === "Save Note")
+		{			
+			process($_POST['Submit']);
+		}
+		else
+		{
+			courseListing();
+		}
+		exit;
+	}
+	else
+	{
+		redirect();
+	}
+	
+	function ldap($uid="") 
+	{
+		if(empty($uid))
+			$uid = $_SESSION['ecom'];
+		
+		$LDAP = ldap_connect("ldap.wiu.edu");
+		$result = ldap_bind($LDAP);
+		
+		$searchResult = ldap_search($LDAP, "ou=People, dc=wiu, dc=edu", "uid=$uid");
+		
+		$numEntries = ldap_count_entries($LDAP, $searchResult);
+		
+		$info = ldap_get_entries($LDAP, $searchResult);
+      	
+		ldap_close($LDAP);
+		
+		if($numEntries > 0)
+			return $info;
+   }
+   
+	// ******************************** login  ******************************************
+	function checkLogin() 
+	{
+		$connection = dbConnect();
+		mysql_select_db("AttendanceTracking");
+		
+		$auth_user = $_SESSION['ecom'];
+		$getRole = mysql_query("SELECT id,role FROM users WHERE ecom = '$auth_user'",
+								$connection) or die (mysql_error());
+		$info = ldap();	
+		$dept = $info[0]["department"][0];
+		$deptdetails = htmlentities(mysql_real_escape_string($dept));
+		if($deptdetails == "")
+		{
+			$deptdetails = "NULL";
+		}
+		if(mysql_num_rows($getRole) > 0 ) 
+		{
+			list($uid,$role) = mysql_fetch_array($getRole);
+			$_SESSION['uid'] = $uid;
+			$_SESSION['role'] = $role;
+			mysql_close();
+			return true;
+		}
+		else 
+		{
+			$personal = ldap_info();
+			if(in_array("wiuInstructor",$personal[0][objectclass]) && in_array("wiuStudent",$personal[0][objectclass]) ) 
+			{
+				$_SESSION['role'] = "instructorUser";
+			}
+			else if (in_array("wiuStudent",$personal[0][objectclass])) 
+			{
+				$_SESSION['role'] = "instructor";
+			}
+			else if (in_array("wiuInstructor",$personal[0][objectclass])) 
+			{
+				$_SESSION['role'] = "instructor";
+			}
+			else if ($deptdetails != "NULL")
+			{
+				$_SESSION['role'] = "instructor";
+			}
+			else if ($deptdetails == "NULL")
+			{
+				$_SESSION['role'] = "user";
+			}
+			$insertQuery = mysql_query("INSERT INTO 
+											users 
+										VALUES(
+										'',
+										'$auth_user',
+										'".$_SESSION['role']."',
+										'".mysql_real_escape_string($info[0]["givenname"][0])."',
+										'".mysql_real_escape_string($info[0]["sn"][0])."',
+										'".$info[0]["mail"][0]."',
+										'".$info[0]["telephonenumber"][0]."',
+										'$deptdetails'
+										)",$connection) or die(mysql_error());
+			
+		}	
+	}
+	
+	//******************************** ldap user info  ******************************************
+
+	function ldap_info()
+	{
+		require("/home/mifdo/https-files/php_ldap_bind.inc");
+			
+		$ds=ldap_connect("ldap.wiu.edu:389");  // must be a valid LDAP server!
+		if (!$ds)
+			return "Unable to connect to the LDAP server.  Contact the UCSS Helpdesk at 298-2704 for support.";
+		
+		$r=ldap_bind($ds,$BindDN,$BindPW);
+		if ($r==0)
+			return "Unable to bind to the LDAP server with the specified username and password.  Contact the UCSS Helpdesk at 298-2704 for support.";
+			
+		$criteria = "uid=".$_SESSION['ecom'];
+			
+		// Search uid entry
+		$sr = ldap_search($ds, "ou=people,dc=wiu,dc=edu", $criteria);
+		if($sr == 0)
+			return array("Unable to find any students registered with that ID.  Please try again or call the UCSS Helpdesk at 298-2704 if you continue to have trouble.","Error");
+
+		$numEntries = ldap_count_entries($ds, $sr);
+		$info = ldap_get_entries($ds, $sr);
+		ldap_close($ds);
+		
+		if($numEntries > 0)
+			return $info;
+	}
+	
+	function redirect() 
+	{
+		header('Location: https://www.wiu.edu/citr/CAS/AttendanceTracking/redirect.sphp');
+	}	
+	
+	function logout() 
+	{
+		
+		if(isset($_COOKIE[session_name()]))
+			setcookie(session_name(),'',time()-42000,'/');
+		
+		session_destroy();
+		header('Location: https://auth.wiu.edu/cas/logout');
+	}	
+	
+	function checkLoginForGA() 
+	{
+		$connection = dbConnect();
+		mysql_select_db("AttendanceTracking");
+		
+		$auth_user = $_SESSION['ecom'];
+				$getRole = mysql_query("SELECT star from courseinfo  WHERE GA = '$auth_user'",
+								$connection) or die (mysql_error());
+								
+				$getId   = mysql_query("SELECT id FROM courseinfo WHERE ecom = '$auth_user'",
+								$connection) or die (mysql_error());
+		$role1="";
+		if(mysql_num_rows($getRole) > 0 &&  mysql_num_rows($getId) > 0) 
+		{
+			$role1="instructor";
+		}
+		else if(mysql_num_rows($getRole) > 0 && mysql_num_rows($getId) <= 0) 
+		{
+			$role1="GA";
+		}
+		else
+		{
+			$role1=" ";
+		}	
+		return $role1;
+	}
+?>
