@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>Attendance Tracker Sheet</title>
+		<link rel="stylesheet" type="text/css" href="css/mdp.css">
+		<script type="text/javascript" src="js/jquery-1.11.1.js"></script>
+		<script type="text/javascript" src="js/jquery-ui-1.11.1.js"></script>
+		<script type="text/javascript" src="jquery-ui.multidatespicker.js"></script>
+		<script type="text/javascript">
+			$(function() {
+				$('#from-input').multiDatesPicker({
+					dateFormat: "yy-mm-dd"
+				});
+			});
+		</script>
+	</head>
+	<body>
+		<form method = "post" action= "datepicker_result.sphp" >
+			<div id="demos">
+				<h2>Demos</h2>
+				<ul id="demos-list">
+					<li class="demo">
+						<h3>From input</h3>
+						<div class="box"  id="from--input">
+							<input type="text" id="from-input" name = "from-input">
+							<input id = "get-data" type = "submit" name = "getData" value = ">> Get Data <<" />
+						</div>
+					</li>
+				</ul>
+				<div class="clear"></div>
+			</div>
+		</form>
+	</body>
+</html>

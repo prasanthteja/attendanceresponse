@@ -1,0 +1,42 @@
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>Attendance Tracker Sheet</title>
+		<link rel="stylesheet" type="text/css" href="css/mdp.css">
+	</head>
+	<body>
+	
+	</body>
+</html>
+<?php
+	if (($SmsMysqlConnection = @mysql_connect("mysql.wiu.edu:34313", "dbadmin", "asdfsaf789s9fd8")))
+	{
+		//echo "Connection Successfull " . $SmsMysqlConnection . "<br/><br/><br/>";
+	}
+	if (mysql_select_db("AttendanceTracking", $SmsMysqlConnection))
+	{
+		//echo "DB SELECTED" . "<br/><br/><br/>";
+	}
+	$rangeArray = explode(", ", $_POST['from-input'] );
+	$check = 0;
+	foreach($rangeArray as $key => $value)
+	{
+		$sql = "SELECT attendedDate, StudentName FROM attendance WHERE `courseStar` = 27195 ORDER BY attendedDate DESC";
+		$result = mysql_query($sql);
+		while($row = mysql_fetch_array($result)) {
+			if($check == 0){
+				echo "<p>DATE: <u>" . $value . "</u></p>";
+				echo "<table class = 'table-style'>
+					  <tr><th><b>STUDENT NAME</b></th>
+					  <th><b>SIGNATURE</b></th>
+					  <th><b>LEFT EARLY</b></th>
+					  </tr>";
+				$check++;
+			}
+			echo  "<tr><td><b>" . stripslashes($row['StudentName']). "</b></td><td> </td>" . "<td> <input type = 'checkbox' style = 'margin-left: 30px;'/> </td></tr>";
+		}
+		$check--;
+		echo "</table>";
+		echo '<p style="page-break-after: always;"></p>';
+	}
+?>
